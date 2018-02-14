@@ -11,19 +11,56 @@ class MoviesController < ApplicationController
   end
 
   def index
-    @movies = Movie.order(params[:sort_by])
-    
-    if params[:ratings]
-        @movies = Movie.where(:rating => params[:ratings].keys).order(params[:sort_by])
-    end
-
-    @sort_column = params[:sort_by]
     @all_ratings = Movie.all_ratings
-    @set_ratings = params[:ratings]
-    if !@set_ratings
-        @set_ratings = Hash.new
+    
+    redirect = false #redirect if saved settings are the same as session settings
+
+    #save sort
+    if params[:sort_by]
+        @sort_by = params[:sort_by]
+        session[:sort_by] = params[:sort_by]
+    elsif session[:sort_by]
+        @sort_by = session[:sort_by]
+        redirect = true
+    else
+        @sort_by = nil
     end
 
+    #save ratings
+    if params[:commit] == "Refresh" and params[:ratings].nil?
+        @ratings = nil
+        session[:ratings] = nil
+    elsif params[:ratings]
+        @ratings = params[:ratings]
+        session[:ratings] = params[:ratings]
+    elsif session[:ratings]
+        @ratings = session[:ratings]
+        redirect = true
+    else
+        @ratings = nil
+    end
+
+    #redirect for RESTfulness
+    if redirect
+        flash.keep #keep flash for another request
+        redirect_to movies_path :sort_by=>@sort_by, :ratings=>@ratings
+    end
+   
+    #use saved settings for view
+    if @ratings and @sort_by
+        @movies = Movie.where(:rating => @ratings.keys).order(@sort_by)
+    elsif @ratings
+        @movies = Movie.where(:rating => @ratings.keys)
+    elsif @sort_by
+        @movies = Movie.order(@sort_by)
+    else
+        @movies = Movie.all
+    end
+
+    #create new hash if doesn't have one
+    if !@ratings
+        @ratings = Hash.new
+    end
   end
 
   def new
